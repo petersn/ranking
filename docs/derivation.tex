@@ -1,0 +1,41 @@
+\documentclass[12pt]{article}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=3cm]{geometry}
+\title{Ranking System}
+\author{Peter Schmidt-Nielsen}
+\begin{document}
+\maketitle
+
+\section{Two player games}
+Our goal is to design a ranking system for team games.
+We proceed in a similar way to how Microsoft Research's TrueSkill is designed.
+First, we explore the version for two player games.
+
+Player $i$ is assumed to have a performace $p_i$ in the game sampled from $\mathcal{N}_{\mu_i, \sigma_i}$, with
+$\mathcal{N}$ being the normal, whose PDF is of course
+\[ \mathcal{N}_{\mu, \sigma}(x) = \frac1{\sigma \sqrt{2 \pi}} e^{-\frac{(x-\mu)^2}{2\sigma^2}}. \]
+Given two players, it is assumed that a player wins if his or her performance exceeds that of his or her opponent.
+A player who is won against is a loser, and if no player wins both players are said to draw.
+Thus, drawing is a measure zero event (our first major modeling error).
+
+\subsection{Probability of a win}
+Given two players, with parameters $(\mu_1, \sigma_1)$ and $(\mu_2, \sigma_2)$ respectively, we seek the probability that $p_1 > p_2$.
+Observe that this holds exactly when $p_2 - p_1 < 0$, or namely when a sample from $\mathcal{N}_{\mu_2 - \mu_1,\sqrt{\sigma_1^2 + \sigma_2^2}}$ is negative.
+This is, of course, equal to its CDF evaluated at zero:
+\[ \mathbb{P}(p_1 > p_2) = \Phi\left(\frac{\mu_1 - \mu_2}{\sqrt{\sigma_1^2 + \sigma_2^2}}\right) \]
+
+\subsection{MLE performances}
+Given that player one won, we want to know what his or her performance most likely was.
+To do this, we do a Maximum Likelihood Estimation of $p_1$ given the four player parameters and the fact that $p_1 > p_2$.
+We compute the likelihood as follows:
+\begin{align*}
+\mathbb{P}(p_1 = x\ |\ p_1 > p_2) &= \frac{\mathbb{P}(p_1 > p_2\ |\ p_1 = x) \mathbb{P}(p_1 = x)}{\mathbb{P}(p_1 > p_2)} \\
+&\propto \mathbb{P}(p_1 > p_2\ |\ p_1 = x) \mathbb{P}(p_1 = x) \\
+&= \int_{-\infty}^x \mathcal{N}_{\mu_2, \sigma_2}(x') \, \mathrm{d}x' \cdot \mathcal{N}_{\mu_1, \sigma_1}(x)
+\end{align*}
+We seek to maximize this quantity.
+
+\section{Acknowledgements}
+The idea to model performance of a player as draws from a normal variate came from Microsoft Research's TrueSkill, and likewise for the idea to model the performance of a team as the sum of the performances of the players.
+Similarly, the decision to be very Bayesian about the whole thing was inspired by TrueSkill.
+\end{document}
