@@ -14,28 +14,89 @@ First, we explore the version for two player games.
 Player $i$ is assumed to have a performace $p_i$ in the game sampled from $\mathcal{N}_{\mu_i, \sigma_i}$, with
 $\mathcal{N}$ being the normal, whose PDF is of course
 \[ \mathcal{N}_{\mu, \sigma}(x) = \frac1{\sigma \sqrt{2 \pi}} e^{-\frac{(x-\mu)^2}{2\sigma^2}}. \]
+We will use $\mathcal{N}_i$ as shorthand for $\mathcal{N}_{\mu_i, \sigma_i}$.
+
 Given two players, it is assumed that a player wins if his or her performance exceeds that of his or her opponent.
 A player who is won against is a loser, and if no player wins both players are said to draw.
 Thus, drawing is a measure zero event (our first major modeling error).
 
-\subsection{Probability of a win}
+\subsection{Figures of interest}
+There are three main figures we care to compute, in a two player game.
+\begin{enumerate}
+\item
+	Probability of w.l.o.g. player one winning $\mathbb{P}(p_1 > p_2)$.
+	We care about this so we can compute how much of an upset it is if the underdog wins.
+\item
+	Maximum likelihood estimate of $p_1$, assuming player one won.
+	That is:
+	\[ \argmax_{x} \mathbb{P}(p_1 = x\ |\ p_1 > p_2) \]
+	This is of obvious interest -- it tells us how well a player likely did given that he or she beat another player.
+\item
+	The expectation of $p_1$ given that player one won, namely $\mathbb{E}[p_1\ |\ p_1 > p_2]$.
+	We will use this value to update a player's mean performance after a round.
+\end{enumerate}
+
+\subsubsection{Probability of a win}
 Given two players, with parameters $(\mu_1, \sigma_1)$ and $(\mu_2, \sigma_2)$ respectively, we seek the probability that $p_1 > p_2$.
-Observe that this holds exactly when $p_2 - p_1 < 0$, or namely when a sample from $\mathcal{N}_{\mu_2 - \mu_1,\sqrt{\sigma_1^2 + \sigma_2^2}}$ is negative.
+Observe that this holds exactly when $p_2 - p_1 < 0$, or namely when a sample from $p_2 - p_1 \sim \mathcal{N}_{\mu_2 - \mu_1,\sqrt{\sigma_1^2 + \sigma_2^2}}$ is negative.
 This is, of course, equal to its CDF evaluated at zero:
 \[ \mathbb{P}(p_1 > p_2) = \Phi\left(\frac{\mu_1 - \mu_2}{\sqrt{\sigma_1^2 + \sigma_2^2}}\right) \]
 
-\subsection{MLE performances}
+\subsubsection{MLE performances}
 Given that player one won, we want to know what his or her performance most likely was.
 To do this, we do a Maximum Likelihood Estimation of $p_1$ given the four player parameters and the fact that $p_1 > p_2$.
 We compute the likelihood as follows:
 \begin{align*}
 \mathbb{P}(p_1 = x\ |\ p_1 > p_2) &= \frac{\mathbb{P}(p_1 > p_2\ |\ p_1 = x) \mathbb{P}(p_1 = x)}{\mathbb{P}(p_1 > p_2)} \\
 &\propto \mathbb{P}(p_1 > p_2\ |\ p_1 = x) \mathbb{P}(p_1 = x) \\
-&= \int_{-\infty}^x \mathcal{N}_{\mu_2, \sigma_2}(x') \, \mathrm{d}x' \cdot \mathcal{N}_{\mu_1, \sigma_1}(x)
+&= \int_{-\infty}^x \mathcal{N}_2(x') \, \mathrm{d}x' \cdot \mathcal{N}_1(x)
 \end{align*}
-We seek to maximize this quantity.
+We seek to maximize this quantity, which we'll call $L(x)$.
+So we compute $L'(x)$:
+\begin{align*}
+L(x) &= \int_{-\infty}^x \mathcal{N}_2(x') \, \mathrm{d}x' \cdot \mathcal{N}_1(x) \\
+L'(x) &= \partial_x \left[ \int_{-\infty}^x \mathcal{N}_2(x') \, \mathrm{d}x' \cdot \mathcal{N}_1(x) \right] \\
+&= \mathcal{N}_2(x) \mathcal{N}_1(x) +
+\int_{-\infty}^x \mathcal{N}_2(x') \, \mathrm{d}x' \cdot \mathcal{N}'_1(x)
+\end{align*}
+Note that:
+\[
+	\int_{-\infty}^x \mathcal{N}_{\mu, \sigma}(x') \, \mathrm{d}x' = \Phi\left(\frac{x - \mu}{\sigma}\right)
+	\qquad \text{and} \qquad
+	\mathcal{N}'_{\mu,\sigma} = - \frac{x - \mu}{\sigma^2} \mathcal{N}_{\mu, \sigma}(x)
+\]
+Thus: 
+\[
+	L'(x) =
+	\mathcal{N}_2(x) \mathcal{N}_1(x) -
+	\Phi\left(\frac{x - \mu_2}{\sigma_2}\right) \frac{x - \mu_1}{\sigma_1^2} \mathcal{N}_1(x)
+\]
+Therefore, to extremize $L$ we can set $L' = 0$, and reduce to:
+\[ \mathcal{N}_2(x) = \Phi\left(\frac{x - \mu_2}{\sigma_2}\right) \frac{x - \mu_1}{\sigma_1^2} \]
+This is readily solvable analytically, so we resort to using Newton's method to hone in on a solution.
+TODO: Fill in the rest of what I've worked out.
+
+\subsubsection{Expectation of performance}
+Given that player one won, we could also wish to ask the expectation of $p_1$.
+We can compute this as:
+\begin{align*}
+\mathbb{E}[p_1\ |\ p_1 > p_2] &= \frac1{\mathbb{P}(p_1 > p2)} \int_{-\infty}^\infty x L(x) \, \mathrm{d}x \\
+&= \frac1{\sigma_1 \sqrt{2\pi}} \Phi\left(\frac{\mu_1 - \mu_2}{\sqrt{\sigma_1^2 + \sigma_2^2}}\right)^{-1}
+   \int_{-\infty}^\infty x \Phi\left(\frac{x - \mu_2}{\sigma_2}\right) e^{-\frac{(x - \mu_1)^2}{2 \sigma_1^2}} \, \mathrm{d}x \\
+%&= \mu_1 + \Phi\left(\frac{\mu_1 - \mu_2}{\sqrt{\sigma_1^2 + \sigma_2^2}}\right)^{-1}
+%   \frac{\sigma_1^2}{\sqrt{2\pi (\sigma_1^2 + \sigma_2^2)}} e^{-\frac{(\mu_1 - \mu_2)^2}{2 (\sigma_1^2 + \sigma_2^2)}}
+&= \mu_1 + \Phi\left(\frac{\mu_1 - \mu_2}{\sqrt{\sigma_s^2}}\right)^{-1}
+   \frac{\sigma_1^2}{\sqrt{2\pi \sigma_s^2}} e^{-\frac{(\mu_1 - \mu_2)^2}{2 \sigma_s^2}} \\
+&= \mu_1 + 2 \operatorname{erfc}\left(\frac{\mu_2 - \mu_1}{\sqrt{2 \sigma_s^2}}\right)^{-1}
+   \frac{\sigma_1^2}{\sqrt{2\pi \sigma_s^2}} e^{-\frac{(\mu_1 - \mu_2)^2}{2 \sigma_s^2}}
+\end{align*}
+Where $\sigma_s^2 = \sigma_1^2 + \sigma_2^2$ is the variance of the sum (equivalently, and perhaps more saliently, difference) of the two normals.
+
+\subsection{Putting it all together}
+TODO: Write this up.
 
 \section{Acknowledgements}
 The idea to model performance of a player as draws from a normal variate came from Microsoft Research's TrueSkill, and likewise for the idea to model the performance of a team as the sum of the performances of the players.
 Similarly, the decision to be very Bayesian about the whole thing was inspired by TrueSkill.
+
 \end{document}
