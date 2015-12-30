@@ -3,6 +3,7 @@
 \usepackage[margin=3cm]{geometry}
 \title{Ranking System}
 \author{Peter Schmidt-Nielsen}
+\DeclareMathOperator*{\argmax}{arg\,max}
 \begin{document}
 \maketitle
 
@@ -14,7 +15,8 @@ First, we explore the version for two player games.
 Player $i$ is assumed to have a performace $p_i$ in the game sampled from $\mathcal{N}_{\mu_i, \sigma_i}$, with
 $\mathcal{N}$ being the normal, whose PDF is of course
 \[ \mathcal{N}_{\mu, \sigma}(x) = \frac1{\sigma \sqrt{2 \pi}} e^{-\frac{(x-\mu)^2}{2\sigma^2}}. \]
-We will use $\mathcal{N}_i$ as shorthand for $\mathcal{N}_{\mu_i, \sigma_i}$.
+All player performances are assumed to be independent.
+We will use $\mathcal{N}_i$ as shorthand for $\mathcal{N}_{\mu_i, \sigma_i}$, namely the distribution of player $i$'s performance.
 
 Given two players, it is assumed that a player wins if his or her performance exceeds that of his or her opponent.
 A player who is won against is a loser, and if no player wins both players are said to draw.
@@ -24,7 +26,7 @@ Thus, drawing is a measure zero event (our first major modeling error).
 There are three main figures we care to compute, in a two player game.
 \begin{enumerate}
 \item
-	Probability of w.l.o.g. player one winning $\mathbb{P}(p_1 > p_2)$.
+	Probability of w.l.o.g. player one winning, $\mathbb{P}(p_1 > p_2)$.
 	We care about this so we can compute how much of an upset it is if the underdog wins.
 \item
 	Maximum likelihood estimate of $p_1$, assuming player one won.
@@ -34,13 +36,19 @@ There are three main figures we care to compute, in a two player game.
 \item
 	The expectation of $p_1$ given that player one won, namely $\mathbb{E}[p_1\ |\ p_1 > p_2]$.
 	We will use this value to update a player's mean performance after a round.
+\item
+	The expectation (and equivalently, as it turns out, MLE) of $p_1 = p_2$ given that the game was a draw.
+	Naturally, we will use this value to update the players' parameters after a draw.
 \end{enumerate}
 
 \subsubsection{Probability of a win}
 Given two players, with parameters $(\mu_1, \sigma_1)$ and $(\mu_2, \sigma_2)$ respectively, we seek the probability that $p_1 > p_2$.
 Observe that this holds exactly when $p_2 - p_1 < 0$, or namely when a sample from $p_2 - p_1 \sim \mathcal{N}_{\mu_2 - \mu_1,\sqrt{\sigma_1^2 + \sigma_2^2}}$ is negative.
 This is, of course, equal to its CDF evaluated at zero:
-\[ \mathbb{P}(p_1 > p_2) = \Phi\left(\frac{\mu_1 - \mu_2}{\sqrt{\sigma_1^2 + \sigma_2^2}}\right) \]
+\[
+	\mathbb{P}(p_1 > p_2) = \Phi\left(\frac{\mu_1 - \mu_2}{\sqrt{\sigma_1^2 + \sigma_2^2}}\right)
+	                      = \frac12 \operatorname{erfc} \left(\frac{\mu_2 - \mu_1}{\sqrt{2\sigma_1^2 + \sigma_2^2}}\right)
+\]
 
 \subsubsection{MLE performances}
 Given that player one won, we want to know what his or her performance most likely was.
@@ -81,18 +89,25 @@ Given that player one won, we could also wish to ask the expectation of $p_1$.
 We can compute this as:
 \begin{align*}
 \mathbb{E}[p_1\ |\ p_1 > p_2] &= \frac1{\mathbb{P}(p_1 > p2)} \int_{-\infty}^\infty x L(x) \, \mathrm{d}x \\
-&= \frac1{\sigma_1 \sqrt{2\pi}} \Phi\left(\frac{\mu_1 - \mu_2}{\sqrt{\sigma_1^2 + \sigma_2^2}}\right)^{-1}
-   \int_{-\infty}^\infty x \Phi\left(\frac{x - \mu_2}{\sigma_2}\right) e^{-\frac{(x - \mu_1)^2}{2 \sigma_1^2}} \, \mathrm{d}x \\
+&= \frac1{\sigma_1 \sqrt{2\pi}} \Phi\left(\frac{\mu_1 - \mu_2}{\sqrt{\sigma_1^2 + \sigma_2^2}}\right)^{-1} \!
+   \int_{-\infty}^\infty x \, \Phi\left(\frac{x - \mu_2}{\sigma_2}\right) e^{-\frac{(x - \mu_1)^2}{2 \sigma_1^2}} \, \mathrm{d}x \\
 %&= \mu_1 + \Phi\left(\frac{\mu_1 - \mu_2}{\sqrt{\sigma_1^2 + \sigma_2^2}}\right)^{-1}
 %   \frac{\sigma_1^2}{\sqrt{2\pi (\sigma_1^2 + \sigma_2^2)}} e^{-\frac{(\mu_1 - \mu_2)^2}{2 (\sigma_1^2 + \sigma_2^2)}}
-&= \mu_1 + \Phi\left(\frac{\mu_1 - \mu_2}{\sqrt{\sigma_s^2}}\right)^{-1}
-   \frac{\sigma_1^2}{\sqrt{2\pi \sigma_s^2}} e^{-\frac{(\mu_1 - \mu_2)^2}{2 \sigma_s^2}} \\
-&= \mu_1 + 2 \operatorname{erfc}\left(\frac{\mu_2 - \mu_1}{\sqrt{2 \sigma_s^2}}\right)^{-1}
-   \frac{\sigma_1^2}{\sqrt{2\pi \sigma_s^2}} e^{-\frac{(\mu_1 - \mu_2)^2}{2 \sigma_s^2}}
+&= \mu_1 + \Phi\left(\frac{\mu_1 - \mu_2}{\sqrt{\sigma_s^2}}\right)^{-1} \!
+   \frac{\sigma_1^2}{\sqrt{2\pi \sigma_s^2}} \, e^{-\frac{(\mu_1 - \mu_2)^2}{2 \sigma_s^2}} \\
+&= \mu_1 + 2 \operatorname{erfc}\left(\frac{\mu_2 - \mu_1}{\sqrt{2 \sigma_s^2}}\right)^{-1} \!
+   \frac{\sigma_1^2}{\sqrt{2\pi \sigma_s^2}} \, e^{-\frac{(\mu_1 - \mu_2)^2}{2 \sigma_s^2}}
 \end{align*}
 Where $\sigma_s^2 = \sigma_1^2 + \sigma_2^2$ is the variance of the sum (equivalently, and perhaps more saliently, difference) of the two normals.
 
+\subsubsection{Expectation given a draw}
+In the case of a tie we know that $p_1 = p_2$.
+This is, of course, a measure zero event, but conditioning on it, we can still produce a PDF for $p_1$, which ends up, interestingly, being normal, with mean:
+\[ \mu = \frac{\mu_1 \sigma_1^{-2} + \mu_2 \sigma_2^{-2}}{\sigma_1^{-2} + \sigma_2^{-2}} \]
+Being the mean of a a normal, this is also the MLE for $p_1$.
+
 \subsection{Putting it all together}
+Given a victory by one player over another, a
 TODO: Write this up.
 
 \section{Acknowledgements}
